@@ -4,6 +4,10 @@ description: Reviews chapter quality with checker agents and generates reports. 
 allowed-tools: Read Grep Write Edit Bash Task AskUserQuestion
 ---
 
+## 路徑解析約定（novel-config）
+
+使用端路徑（章節、設定、大綱、備註）**優先**透過 `scripts/config_resolver.py` 讀取 `novel.config.json`，缺失時回退到 webnovel-writer-G 預設路徑。完整對照見 [novel-config/PATH_MAPPING.md](../novel-config/PATH_MAPPING.md)。框架內部狀態（`.webnovel/state.json` 等）**不受此規範管理**。
+
 # Quality Review Skill
 
 ## Project Root Guard（必须先确认）

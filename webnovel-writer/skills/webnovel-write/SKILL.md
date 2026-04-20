@@ -4,6 +4,10 @@ description: Writes webnovel chapters (default 2000-2500 words). Use when the us
 allowed-tools: Read Write Edit Grep Bash Task
 ---
 
+## 路徑解析約定（novel-config）
+
+章節檔路徑（`chapters_dir` + `chapter_pattern`）、設定、大綱、備註等使用端路徑，**優先**透過 `scripts/config_resolver.py` 讀取 `novel.config.json`。`scripts/chapter_paths.py` 已 patch 為讀 config。缺失時回退到 webnovel-writer-G 預設路徑（`正文/第{NNNN}章-{title}.md`）。完整對照見 [novel-config/PATH_MAPPING.md](../novel-config/PATH_MAPPING.md)。框架內部狀態（`.webnovel/state.json` 等）**不受此規範管理**。
+
 # Chapter Writing (Structured Workflow)
 
 ## 目标

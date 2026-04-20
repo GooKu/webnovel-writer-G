@@ -21,6 +21,46 @@ _OUTLINE_HEADING_RE = re.compile(r"^#{1,6}\s*第\s*(?P<num>\d+)\s*章[：:]\s*(?
 _SPLIT_OUTLINE_FILENAME_RE = re.compile(r"^第0*(?P<num>\d+)章[-—_ ]+(?P<title>.+?)\.md$")
 
 
+def _config_chapters_dir(project_root: Path) -> Optional[Path]:
+    """讀 novel.config.json 的 arcs[current_arc].chapters_dir，失敗時回 None。"""
+    try:
+        from config_resolver import resolve_arc_path
+    except ImportError:
+        return None
+    value = resolve_arc_path(project_root, None, "chapters_dir")
+    if not value:
+        return None
+    p = Path(value)
+    if not p.is_absolute():
+        p = project_root / p
+    return p
+
+
+def _config_outline_dir(project_root: Path) -> Optional[Path]:
+    """讀 novel.config.json 的 arcs[current_arc].notes_dir，失敗時回 None。"""
+    try:
+        from config_resolver import resolve_arc_path
+    except ImportError:
+        return None
+    value = resolve_arc_path(project_root, None, "notes_dir")
+    if not value:
+        return None
+    p = Path(value)
+    if not p.is_absolute():
+        p = project_root / p
+    return p
+
+
+def _config_chapter_pattern(project_root: Path) -> Optional[str]:
+    """讀 novel.config.json 的 arcs[current_arc].chapter_pattern。"""
+    try:
+        from config_resolver import resolve_arc_path
+    except ImportError:
+        return None
+    value = resolve_arc_path(project_root, None, "chapter_pattern")
+    return value if isinstance(value, str) and value else None
+
+
 def volume_num_for_chapter(chapter_num: int, *, chapters_per_volume: int = 50) -> int:
     if chapter_num <= 0:
         raise ValueError("chapter_num must be >= 1")
@@ -92,15 +132,24 @@ def extract_chapter_title(project_root: Path, chapter_num: int) -> str:
         if title:
             return title
 
-    outline_dir = project_root / "大纲"
+    outline_dir = _config_outline_dir(project_root) or (project_root / "大纲")
     if outline_dir.exists():
         return _extract_title_from_split_outline_filename(outline_dir, chapter_num)
     return ""
 
 
 def _build_chapter_filename(project_root: Path, chapter_num: int, *, use_volume_layout: bool) -> str:
-    padded = f"{chapter_num:03d}" if use_volume_layout else f"{chapter_num:04d}"
     title = extract_chapter_title(project_root, chapter_num)
+
+    pattern = _config_chapter_pattern(project_root)
+    if pattern:
+        try:
+            from config_resolver import format_chapter_filename
+            return format_chapter_filename(pattern, chapter_num, title)
+        except ImportError:
+            pass
+
+    padded = f"{chapter_num:03d}" if use_volume_layout else f"{chapter_num:04d}"
     if title:
         return f"第{padded}章-{title}.md"
     return f"第{padded}章.md"
@@ -108,10 +157,10 @@ def _build_chapter_filename(project_root: Path, chapter_num: int, *, use_volume_
 
 def find_chapter_file(project_root: Path, chapter_num: int) -> Optional[Path]:
     """
-    Find an existing chapter file for chapter_num under project_root/正文.
-    Returns the first match (stable sorted order) or None if not found.
+    Find an existing chapter file for chapter_num under the configured chapters_dir
+    (falls back to `正文/`). Returns the first match (stable sorted order) or None.
     """
-    chapters_dir = project_root / "正文"
+    chapters_dir = _config_chapters_dir(project_root) or (project_root / "正文")
     if not chapters_dir.exists():
         return None
 
@@ -147,9 +196,10 @@ def default_chapter_draft_path(project_root: Path, chapter_num: int, *, use_volu
     Default is flat layout. If the detailed outline already has a chapter title,
     append it to the filename for better discoverability.
     """
+    chapters_root = _config_chapters_dir(project_root) or (project_root / "正文")
     if use_volume_layout:
-        vol_dir = project_root / "正文" / f"第{volume_num_for_chapter(chapter_num)}卷"
+        vol_dir = chapters_root / f"第{volume_num_for_chapter(chapter_num)}卷"
         return vol_dir / _build_chapter_filename(project_root, chapter_num, use_volume_layout=True)
     else:
-        return project_root / "正文" / _build_chapter_filename(project_root, chapter_num, use_volume_layout=False)
+        return chapters_root / _build_chapter_filename(project_root, chapter_num, use_volume_layout=False)
 

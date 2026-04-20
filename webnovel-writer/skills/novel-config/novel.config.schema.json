@@ -1,0 +1,130 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "novel.config.schema.json",
+  "title": "Novel Workspace Config",
+  "description": "定義小說專案的目錄結構、篇章配置、寫作規範與功能開關。所有 skill 與 CLAUDE.md 以此為單一事實源。",
+  "type": "object",
+  "required": ["version", "project", "paths", "arcs", "settings"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "version": {
+      "type": "string",
+      "description": "Config schema 版本，遵循 SemVer",
+      "pattern": "^\\d+\\.\\d+$"
+    },
+    "project": {
+      "type": "object",
+      "required": ["name", "language"],
+      "properties": {
+        "name": { "type": "string", "description": "作品名" },
+        "language": {
+          "type": "string",
+          "enum": ["zh-TW", "zh-CN", "en", "ja"],
+          "description": "主要寫作語言"
+        },
+        "genre": { "type": "string", "description": "題材標籤" },
+        "current_arc": { "type": "string", "description": "目前主要推進的篇章 key，對應 arcs 中的鍵" }
+      }
+    },
+    "paths": {
+      "type": "object",
+      "required": ["confirmed_root", "draft_root"],
+      "properties": {
+        "confirmed_root": { "type": "string", "description": "已確認內容根目錄" },
+        "draft_root": { "type": "string", "description": "草稿與提案根目錄" },
+        "translations_root": { "type": "string", "description": "翻譯輸出根目錄" }
+      }
+    },
+    "arcs": {
+      "type": "object",
+      "description": "篇章字典，key 為篇章名稱",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["chapters_dir", "chapter_pattern"],
+        "properties": {
+          "chapters_dir": { "type": "string", "description": "該篇章章節檔所在目錄" },
+          "chapter_pattern": {
+            "type": "string",
+            "description": "章節檔名模式，支援 {NNN}（3 位編號）與 {title}"
+          },
+          "outline": { "type": "string", "description": "卷大綱檔路徑" },
+          "arc_settings": { "type": "string", "description": "該篇章主要設定檔路徑" },
+          "notes_dir": { "type": "string", "description": "備註目錄（EP/時間線/伏筆等）" },
+          "notes_required": {
+            "type": "boolean",
+            "default": true,
+            "description": "寫作前是否必讀此 notes_dir"
+          }
+        }
+      }
+    },
+    "settings": {
+      "type": "object",
+      "required": ["worldview", "writing_spec"],
+      "properties": {
+        "worldview": { "type": "string", "description": "世界觀總覽檔" },
+        "writing_spec": { "type": "string", "description": "絕對寫作規範檔" },
+        "characters_dir": { "type": "string", "description": "人物設定目錄" },
+        "glossary_dir": { "type": "string", "description": "詞條目錄" },
+        "high_risk_glossary": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "高風險詞條檔名清單，涉及時強制讀取"
+        }
+      }
+    },
+    "translation": {
+      "type": "object",
+      "properties": {
+        "output_dir": { "type": "string" },
+        "languages": {
+          "type": "array",
+          "items": { "type": "string", "enum": ["zh-TW", "zh-CN", "en", "ja"] }
+        },
+        "glossary": { "type": "string", "description": "翻譯對照表目錄" }
+      }
+    },
+    "writing": {
+      "type": "object",
+      "properties": {
+        "target_words_per_chapter": {
+          "type": "object",
+          "required": ["min", "max"],
+          "properties": {
+            "min": { "type": "integer", "minimum": 0 },
+            "max": { "type": "integer", "minimum": 0 }
+          }
+        },
+        "dash_limit_per_chapter": { "type": "integer", "minimum": 0 },
+        "word_count_script": { "type": "string" },
+        "format_audit_script": { "type": "string" }
+      }
+    },
+    "external_readonly": {
+      "type": "object",
+      "description": "外部唯讀資源路徑，嚴格禁止修改",
+      "additionalProperties": { "type": "string" }
+    },
+    "review": {
+      "type": "object",
+      "properties": {
+        "layers": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "review 層級名稱，順序即輸出順序"
+        }
+      }
+    },
+    "features": {
+      "type": "object",
+      "description": "可擴展功能開關",
+      "properties": {
+        "strand_weave": { "type": "boolean", "default": false, "description": "啟用 Strand 三線比例檢查" },
+        "reading_power": { "type": "boolean", "default": false, "description": "啟用追讀力維度" },
+        "structured_storage": { "type": "boolean", "default": false, "description": "啟用 SQLite 結構化資料層（預留，尚未實作）" },
+        "rag": { "type": "boolean", "default": false, "description": "啟用 RAG 檢索（預留，尚未實作）" }
+      },
+      "additionalProperties": { "type": "boolean" }
+    }
+  }
+}

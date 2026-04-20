@@ -3,6 +3,10 @@ name: webnovel-plan
 description: Builds volume and chapter outlines from the total outline, inherits creative constraints, and prepares writing-ready chapter plans. Use when the user asks for outlining or runs /webnovel-plan.
 ---
 
+## 路徑解析約定（novel-config）
+
+使用端路徑（章節、設定、大綱、備註）**優先**透過 `scripts/config_resolver.py` 讀取 `novel.config.json`，缺失時回退到 webnovel-writer-G 預設路徑。完整對照見 [novel-config/PATH_MAPPING.md](../novel-config/PATH_MAPPING.md)。框架內部狀態（`.webnovel/state.json` 等）**不受此規範管理**。
+
 # Outline Planning
 
 Purpose: refine 总纲 into volume + chapter outlines. Do not redesign the global story.

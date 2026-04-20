@@ -1,0 +1,73 @@
+{
+  "$schema": ".agent/external/webnovel-writer-G/webnovel-writer/skills/novel-config/novel.config.schema.json",
+  "version": "1.0",
+
+  "project": {
+    "name": "示例作品：星海旅人",
+    "language": "zh-TW",
+    "genre": "太空歌劇",
+    "current_arc": "主線第一部"
+  },
+
+  "paths": {
+    "confirmed_root": "Confirmed",
+    "draft_root": "Draft",
+    "translations_root": "Confirmed/Translations"
+  },
+
+  "arcs": {
+    "主線第一部": {
+      "chapters_dir": "Confirmed/主線_第一部",
+      "chapter_pattern": "{NNN}_{title}.md",
+      "outline": "Confirmed/設定/大綱/主線/第一部_大綱.md",
+      "arc_settings": "Confirmed/設定/大綱/主線/主要設定.md",
+      "notes_dir": "Confirmed/設定/大綱/主線/備註",
+      "notes_required": true
+    },
+    "番外短篇集": {
+      "chapters_dir": "Confirmed/番外",
+      "chapter_pattern": "{title}.md",
+      "notes_required": false
+    }
+  },
+
+  "settings": {
+    "worldview": "Confirmed/設定/世界觀/世界觀總覽.md",
+    "writing_spec": "Confirmed/設定/寫作規範.md",
+    "characters_dir": "Confirmed/設定/人物",
+    "glossary_dir": "Confirmed/設定/詞條",
+    "high_risk_glossary": [
+      "核心術語A.md",
+      "核心術語B.md"
+    ]
+  },
+
+  "translation": {
+    "output_dir": "Confirmed/Translations",
+    "languages": ["zh-CN", "en", "ja"],
+    "glossary": "Confirmed/設定/翻譯"
+  },
+
+  "writing": {
+    "target_words_per_chapter": { "min": 1700, "max": 2200 },
+    "dash_limit_per_chapter": 3,
+    "word_count_script": ".agent/skills/word_count/scripts/count.ps1",
+    "format_audit_script": ".agent/scripts/review_audit.py"
+  },
+
+  "external_readonly": {
+    "example_data": "../../data/example.json",
+    "reference_images": "../../assets/reference"
+  },
+
+  "review": {
+    "layers": ["結構", "設定", "文學", "商業"]
+  },
+
+  "features": {
+    "strand_weave": false,
+    "reading_power": false,
+    "structured_storage": false,
+    "rag": false
+  }
+}
