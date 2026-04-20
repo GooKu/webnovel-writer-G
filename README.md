@@ -7,10 +7,14 @@
 <a href="https://trendshift.io/repositories/22487" target="_blank"><img src="https://trendshift.io/api/badge/repositories/22487" alt="lingfengQAQ%2Fwebnovel-writer | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
 ## GooKu Fork 客製化說明
 
-本 fork（`GooKu/webnovel-writer-G`）在原版基礎上增加了 **novel-config 路徑解析層**，讓框架能適配任意目錄結構，不再要求專案一定使用 `正文/`、`大纲/`、`设定集/` 等預設路徑。
+本 fork（`GooKu/webnovel-writer-G`）在原版基礎上重大變更：
+
+1. **novel-config 路徑解析層**：讓框架能適配任意目錄結構，不再要求專案一定使用 `正文/`、`大纲/`、`设定集/` 等預設路徑
+2. **MD-first 儲存模型**：Markdown 為 Single Source of Truth，`index.db` 為衍生視圖；同步模式可配置（`active` 預設自動同步 / `passive` 手動同步），取代原版「DB 為主寫入、MD 可選」的設計
 
 ### 新增功能
 
+**A. 路徑解析層**
 - **`scripts/config_resolver.py`**：讀取專案根目錄下的 `novel.config.json`，提供 Python API 與 CLI 供所有 skill 與 script 使用
 - **`scripts/chapter_paths.py`（patch）**：`find_chapter_file`、`default_chapter_draft_path`、`_build_chapter_filename` 等函數改為優先讀 config，找不到時回退原始預設路徑
 - **`skills/novel-config/`**：
@@ -20,13 +24,24 @@
   - `PATH_MAPPING.md`：原始硬寫死路徑 ↔ config 欄位對照表
 - 所有 skill SKILL.md 頂部加入「路徑解析約定（novel-config）」banner，說明 config-first / 回退機制
 
+**B. MD-first 儲存模型**
+- **`docs/storage-model.md`**：正式規範文件，定義 SOT / Derived View 分層、同步方向、DB 內容邊界、重建保證
+- **`references/entity-management-spec.md`（patch）**：Data Agent 由「直接寫 DB」改為「提議寫入 MD，使用者確認後被動 sync」
+- **`references/shared/core-constraints.md`（patch）**：明確「寫入走 MD、查詢走 DB」——寫作端提議寫入 MD（SOT），機器查詢一律走 `index.db`（效率與 token 考量）
+- **`docs/architecture.md`（patch）**：資料層圖示與 Data Agent 職責重寫
+
 ### 使用方式
 
-在書項目根目錄建立 `novel.config.json`（參照 `skills/novel-config/novel.config.sample.json`）。framework 會自動讀取；不存在時行為與原版相同。
+**路徑解析**：在書項目根目錄建立 `novel.config.json`（參照 `skills/novel-config/novel.config.sample.json`）。framework 會自動讀取；不存在時行為與原版相同。
+
+**儲存模型**：於 `novel.config.json` 設定 `features.structured_storage: true` 啟用；MD 格式約定與同步流程詳見 [`docs/storage-model.md`](docs/storage-model.md)。
 
 ### 上游同步
 
-本 fork 追蹤 `lingfengQAQ/webnovel-writer` 主線。客製化修改集中在 `config_resolver.py`（新增）與 `chapter_paths.py`（patch），合併上游時優先保留這兩個檔案的 config-aware 邏輯。
+本 fork 追蹤 `lingfengQAQ/webnovel-writer` 主線。客製化修改分兩類：
+
+- **新增檔案**（合併時直接保留）：`scripts/config_resolver.py`、`skills/novel-config/`、`docs/storage-model.md`
+- **上游檔案 patch**（合併時優先保留本 fork 邏輯）：`scripts/chapter_paths.py`、`references/entity-management-spec.md`、`references/shared/core-constraints.md`、`docs/architecture.md`
 
 ---
 
@@ -36,6 +51,7 @@
 
 详细文档已拆分到 `docs/`：
 
+- **储存模型（本 fork 规范）**：[`docs/storage-model.md`](docs/storage-model.md) 🆕
 - 架构与模块：`docs/architecture.md`
 - 命令详解：`docs/commands.md`
 - RAG 与配置：`docs/rag-and-config.md`

@@ -1,19 +1,24 @@
 # 实体管理规范 (Entity Management Specification)
 
 > **适用范围**: 所有实体类型（角色/地点/物品/势力/招式）
-> **核心目标**: AI 驱动的实体提取、别名管理、版本追踪
+> **核心目标**: MD 为 SOT，DB 为派生视图；AI 辅助的实体提取、别名管理、版本追踪
+>
+> ⚠️ **本 fork 规范变更（webnovel-writer-G）**：本文件已从「DB 为主写入」调整为「MD 为 SOT、DB 为衍生视图」模型。整体原则请先阅读 [`docs/storage-model.md`](../../../docs/storage-model.md)（繁体）。本文件描述的是「DB 作为派生层」的 schema 与接口细节。
 
 ---
 
-## 当前规范变更
+## 当前规范变更（MD-first 模型）
 
-1. **SQLite 存储**: 实体、别名、状态变化、关系迁移到 `index.db`
-2. **state.json 精简**: 仅保留进度、主角状态、节奏追踪（< 5KB）
-3. **AI 提取**: Data Agent 从纯正文语义提取实体
-4. **置信度消歧**: >0.8 自动采用，0.5-0.8 警告，<0.5 人工确认
-5. **双 Agent 架构**: Context Agent (读) + Data Agent (写)
+1. **MD 为 SOT**: 所有实体的权威内容（名称、别名、长描述、状态变化原因）最终落在 Markdown 文件
+2. **SQLite 派生**: `index.db` 存储**索引 + 短描述（≤30字）+ MD 指针**，便于聚合查询与降低 token 消耗
+3. **短描述上限**: DB 中所有文字描述字段（`short_desc` / `short_reason`）硬上限 30 字，长叙述一律留 MD
+4. **可配置同步**: DB 由同步器从 MD 生成；触发时机由 `storage.sync_mode` 决定——`active`（预设，写作流程末段自动）或 `passive`（仅使用者明确指令）
+5. **state.json 精简**: 仅保留进度、主角状态、节奏追踪（< 5KB）
+6. **AI 辅助提取**: Data Agent 从正文提取候选实体并**写入 MD**，由使用者确认后再触发 sync 入库
+7. **置信度消歧**: >0.8 自动采纳候选（写入 MD）、0.5-0.8 警告、<0.5 标记待人工确认
+8. **重建保证**: 删除 DB 不构成资料遗失——可随时从 MD 全量重建
 
-> **注意**: XML 标签仍可用于手动标注场景，但主流程不再要求。
+> **注意**: XML 标签仍可用于手动标注场景（写入 MD），但主流程不再要求。
 
 ---
 
@@ -98,7 +103,7 @@ CREATE TABLE relationships (
 
 ## 二、处理流程
 
-### 2.1 Data Agent 自动提取
+### 2.1 Data Agent 辅助提取（MD-first 流程）
 
 ```
 章节正文
@@ -107,28 +112,36 @@ Data Agent (AI 语义分析)
     ↓
 ┌─────────────────────────────────────────────────────────┐
 │ 1. 识别出场实体                                          │
-│    - 匹配已有实体（通过 aliases 表）                      │
+│    - 匹配已有实体（通过 MD 中登记的 aliases）             │
 │    - 识别新实体，生成 suggested_id                       │
 │                                                          │
 │ 2. 置信度评估                                            │
-│    ├─ > 0.8: 自动采用                                   │
-│    ├─ 0.5-0.8: 采用但警告                               │
-│    └─ < 0.5: 标记待人工确认                             │
+│    ├─ > 0.8: 写入对应 MD（人物档 / 备注流水）            │
+│    ├─ 0.5-0.8: 写入 MD 并标注 warning                   │
+│    └─ < 0.5: 输出提议清单，等待使用者确认后再写 MD        │
 │                                                          │
-│ 3. 写入 index.db                                        │
-│    - entities 表: 新实体/更新出场章节                    │
-│    - aliases 表: 注册新别名                             │
-│    - state_changes 表: 记录属性变化                     │
-│    - relationships 表: 记录新关系                       │
+│ 3. 写入 Markdown（SOT）                                 │
+│    - 新角色 → 新建或追加 人物/*.md                       │
+│    - 属性变化 → 追加对应流水 MD（如 EP记录.md）          │
+│    - 新关系 → 追加 劇情線與伏筆記錄.md 或人物档             │
+│    - 格式遵循 storage-model.md 第 4 章约定               │
 │                                                          │
-│ 4. 更新 state.json (精简)                               │
+│ 4. 触发 sync（依 storage.sync_mode）：                  │
+│    - active（预设）：写作流程末段自动 sync               │
+│    - passive：等待使用者明确触发 sync-records            │
+│    ↓                                                     │
+│ 5. sync_md_to_db 读取 MD → upsert index.db              │
+│    - entities / aliases / state_changes / ...           │
+│                                                          │
+│ 6. 更新 state.json (精简，仍由 sync 同步)                │
 │    - protagonist_state: 主角状态快照                    │
 │    - strand_tracker: 节奏追踪                           │
-│    - disambiguation_warnings/pending: 消歧记录          │
 └─────────────────────────────────────────────────────────┘
     ↓
-index.db 更新完成
+MD 定稿 → DB 反映 MD 状态
 ```
+
+**关键差异**：Data Agent **不再直接写 DB**。所有写入统一走 MD → sync → DB 的单向管道。详见 [`docs/storage-model.md`](../../../docs/storage-model.md) 第三章「同步机制」。
 
 ### 2.2 查询接口
 
@@ -277,19 +290,29 @@ python "${SCRIPTS_DIR}/webnovel.py" --project-root "$PROJECT_ROOT" index stats
 
 ## 七、总结
 
-### 7.1 当前结构的核心改进
+### 7.1 当前结构的核心改进（MD-first）
 
-1. **SQLite 存储**: 解决 state.json 膨胀问题
-2. **精简 JSON**: state.json 保持 < 5KB
-3. **一对多别名**: 同一别名可映射多个实体
-4. **AI 自动提取**: Data Agent 语义分析替代 XML 标签
+1. **MD 为 SOT**: 所有权威内容落在 Markdown，git 友善、可人读
+2. **SQLite 派生**: `index.db` 仅存索引/短描述/MD 指针，保持轻量
+3. **精简 JSON**: state.json 保持 < 5KB
+4. **一对多别名**: 同一别名可映射多个实体
+5. **AI 辅助提取**: Data Agent 语义分析 → 写入 MD → 使用者确认 → sync 入 DB
+6. **可重建**: 删除 DB 不丢失资料，可从 MD 全量重建
 
-### 7.2 数据流
+### 7.2 数据流（MD-first）
 
 ```
-章节正文 → Data Agent → index.db (实体/别名/关系/状态变化)
-                      → state.json (进度/主角状态/节奏)
-                      → vectors.db (场景向量)
+章节正文 → Data Agent → MD（SOT）
+                         ├─ 人物档 / 流水 MD / 伏笔 MD
+                         └─ 使用者确认
                               ↓
-                      Context Agent → 下一章上下文
+                         sync-records（active 自动 / passive 手动）
+                              ↓
+                         ├─ index.db（实体/别名/关系/状态变化索引）
+                         ├─ state.json（进度/主角状态/节奏）
+                         └─ vectors.db（场景向量，可选）
+                              ↓
+                         Context Agent → 下一章上下文
 ```
+
+详细规范与格式约定请参见 [`docs/storage-model.md`](../../../docs/storage-model.md)。

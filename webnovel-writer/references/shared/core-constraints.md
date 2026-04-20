@@ -15,16 +15,22 @@ purpose: 每次章节写作前加载，确保三大定律执行
 | 定律 | 规则 | 检查方式 |
 |------|------|----------|
 | **大纲即法律** | 严格执行大纲，不得擅自发挥 | 审查时对照大纲 |
-| **设定即物理** | 实力/招式/物品 ≤ index.db 记录 | 写作前查询确认 |
-| **发明需识别** | 新实体由 Data Agent 自动提取 | 章节完成后处理 |
+| **设定即物理** | 实力/招式/物品 ≤ 设定记录（MD 为 SOT，DB 为派生视图） | 写作前查询 `index.db` 确认（机器查询以 DB 为主） |
+| **发明需识别** | 新实体须登记入 MD（SOT），由 sync 派生到 DB | 章节完成 → 使用者确认 → sync（依 sync_mode 自动或手动） |
 
-## 新实体处理流程
+> 本 fork 采 **MD-first** 模型：MD 为 Single Source of Truth，`index.db` 为衍生视图。**写入走 MD，查询走 DB**（效率与 token 考量）。详见 [`docs/storage-model.md`](../../../../docs/storage-model.md)。
 
-当前规则：正文不再要求 XML 标签：
+## 新实体处理流程（MD-first）
+
+当前规则：正文不再要求 XML 标签。流程为 **正文 → MD 登记 → 被动 sync → DB**：
 
 1. **写作时**: 直接写纯正文，新角色/地点/物品正常描写
-2. **完成后**: Data Agent 自动识别新实体并写入 index.db
-3. **不确定实体**: Data Agent 标记为 uncertain，由人工确认
+2. **完成后**: Data Agent 辅助识别新实体，提议写入对应 MD（人物档 / 备注流水 / 伏笔档）
+3. **同步到 DB**: 依 `storage.sync_mode` 触发
+   - `active`（预设）：写作 / 修改流程末段自动 sync
+   - `passive`：使用者明确触发 `sync-records`
+4. **不确定实体**: Data Agent 标记为 uncertain，暂不写入 MD，等待人工裁决
+5. **禁止**: Data Agent 直接写 `index.db`；DB 仅接受 sync 流程的写入
 
 ## 章节约束分层
 
@@ -74,17 +80,17 @@ purpose: 每次章节写作前加载，确保三大定律执行
 <example>
 <input>主角需要使用"天雷掌"击败敌人</input>
 <output>
-1. 查询 index.db 中是否有"天雷掌"技能
+1. 查询 `index.db` 中是否有"天雷掌"技能（机器查询以 DB 为主）
 2. 若有：直接使用
-3. 若无：在正文中描写获得途径（如拜师/领悟/传承），Data Agent 会自动提取
+3. 若无：在正文中描写获得途径（如拜师/领悟/传承），Data Agent 提议登记到 MD，使用者确认后 sync 入库
 </output>
 </example>
 
 <example type="edge_case">
-<input>剧情需要主角展示筑基期实力，但 index.db 显示练气期</input>
+<input>剧情需要主角展示筑基期实力，但 `index.db` 查询结果为练气期</input>
 <output>
 ❌ 直接写筑基期战力 → 违反"设定即物理"
-✅ 先安排突破场景，Data Agent 更新 index.db，再展示新实力
+✅ 先安排突破场景 → 更新 MD 流水与主角档 → 使用者确认 → sync 反映到 index.db → 再展示新实力
 </output>
 </example>
 
@@ -93,6 +99,7 @@ purpose: 每次章节写作前加载，确保三大定律执行
 <errors>
 ❌ 新实体描写模糊（无法自动识别） → ✅ 确保新实体有明确名称和描写
 ❌ 主角突然会新技能 → ✅ 先描写获得途径
-❌ 实力设定不一致 → ✅ 写作前查询 index.db 确认
+❌ 实力设定不一致 → ✅ 写作前查询 `index.db` 确认（机器查询以 DB 为主）
+❌ Data Agent 直接写 index.db → ✅ 先写 MD，使用者确认后由 sync 入库
 ❌ 整章无推进点（无目标/无代价/无变化） → ✅ 补至少一项可识别推进
 </errors>
