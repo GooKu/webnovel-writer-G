@@ -5,9 +5,34 @@
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-Compatible-purple.svg)](https://claude.ai/claude-code)
 
 <a href="https://trendshift.io/repositories/22487" target="_blank"><img src="https://trendshift.io/api/badge/repositories/22487" alt="lingfengQAQ%2Fwebnovel-writer | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
+## GooKu Fork 客製化說明
+
+本 fork（`GooKu/webnovel-writer-G`）在原版基礎上增加了 **novel-config 路徑解析層**，讓框架能適配任意目錄結構，不再要求專案一定使用 `正文/`、`大纲/`、`设定集/` 等預設路徑。
+
+### 新增功能
+
+- **`scripts/config_resolver.py`**：讀取專案根目錄下的 `novel.config.json`，提供 Python API 與 CLI 供所有 skill 與 script 使用
+- **`scripts/chapter_paths.py`（patch）**：`find_chapter_file`、`default_chapter_draft_path`、`_build_chapter_filename` 等函數改為優先讀 config，找不到時回退原始預設路徑
+- **`skills/novel-config/`**：
+  - `SKILL.md`：config 初始化流程與欄位說明
+  - `novel.config.schema.json`：JSON Schema（draft-07）
+  - `novel.config.sample.json`：通用範例（非真實專案內容）
+  - `PATH_MAPPING.md`：原始硬寫死路徑 ↔ config 欄位對照表
+- 所有 skill SKILL.md 頂部加入「路徑解析約定（novel-config）」banner，說明 config-first / 回退機制
+
+### 使用方式
+
+在書項目根目錄建立 `novel.config.json`（參照 `skills/novel-config/novel.config.sample.json`）。framework 會自動讀取；不存在時行為與原版相同。
+
+### 上游同步
+
+本 fork 追蹤 `lingfengQAQ/webnovel-writer` 主線。客製化修改集中在 `config_resolver.py`（新增）與 `chapter_paths.py`（patch），合併上游時優先保留這兩個檔案的 config-aware 邏輯。
+
+---
+
 ## 项目简单介绍
 
-`Webnovel Writer` 是基于 Claude Code 的长篇网文创作系统，目标是降低 AI 写作中的“遗忘”和“幻觉”，支持长周期连载创作。
+`Webnovel Writer` 是基于 Claude Code 的长篇网文创作系统，目标是降低 AI 写作中的”遗忘”和”幻觉”，支持长周期连载创作。
 
 详细文档已拆分到 `docs/`：
 
