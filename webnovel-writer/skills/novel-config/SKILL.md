@@ -68,6 +68,58 @@ description: 小說專案的配置層定義。提供 schema、sample 樣板，�
 - 不使用絕對路徑
 - 跨平台路徑一律使用正斜線 `/`
 
+## Project-Specific SQL Projections
+
+webnovel-writer-G 採用 **Markdown SOT / SQLite derived view**。框架核心 DB schema 只保存通用索引；專案若需要領域專屬查詢表，必須以 project-specific SQL projection 實作。
+
+### 原則
+
+- **MD 是資料來源**：專案專屬資料先寫入專案內 Markdown，並加入版控。
+- **SQL 是查詢索引**：專案專屬 SQL 表由 Markdown 同步生成，不手動作為權威資料維護。
+- **框架 schema 不放專案結構**：任何特定作品、特定資料域或特定工作流的表，都不得寫入通用 `db_schema.py`。
+- **專案 parser 持有專屬 schema**：專案自己的 `storage.parser` 模組可建立、清理、填充專案專屬表。
+- **可重建**：刪除 `.webnovel/index.db` 後，執行 sync / rebuild 必須能從 MD 重建專案專屬表。
+
+### Optional Parser Hooks
+
+若專案需要額外 SQL projection，`novel.config.json -> storage.parser` 指向的 parser 可選擇實作下列 hook：
+
+```python
+def ensure_project_schema(conn) -> None:
+    """Create project-owned derived tables if needed."""
+
+def purge_project_source(conn, source_md: str) -> None:
+    """Remove project-owned rows derived from one MD source."""
+
+def sync_project_records(conn, md_path, entities, changes) -> None:
+    """Populate project-owned tables from parser records."""
+```
+
+同步器會以 `hasattr()` 偵測這些 hook；未實作時不影響通用同步。
+
+### Config 要求
+
+專案專屬 projection 的 Markdown 來源必須列入 `storage.scan_paths`。以下僅示意欄位位置，實際路徑由使用端專案自行定義，禁止在框架 skill 中保存專案內容或專案路徑：
+
+```json
+{
+  "storage": {
+    "parser": "path/to/project_parser.py",
+    "scan_paths": [
+      "path/to/project-owned-source.md"
+    ]
+  }
+}
+```
+
+`scan_paths` 僅宣告要掃描的 MD；SQL 表結構仍由專案 parser hook 管理。
+
+### 查詢慣例
+
+- 查詢時先讀 SQL 專屬表，取得短摘要與 `source_md` / `source_line`。
+- 需要修改或確認語境時，回讀 Markdown 對應位置。
+- 不得直接修改 SQL 後視為完成；所有修改必須落回 MD，再重跑 sync。
+
 ---
 
 ## Schema 驗證

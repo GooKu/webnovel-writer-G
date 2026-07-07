@@ -106,6 +106,24 @@ cat "${SKILL_ROOT}/references/tag-specification.md"
 cat "$PROJECT_ROOT/.webnovel/state.json"
 ```
 
+### Project-Specific SQL Projections
+
+若專案啟用 structured storage，且 `novel.config.json -> storage.parser` 產生專案專屬 SQL projection，查詢時優先使用 SQL，再依 `source_md` / `source_line` 回讀 Markdown。
+
+原則：
+- SQL 是 derived view，只能作為查詢入口。
+- Markdown 是 single source of truth；需要修改時改 MD，再 sync。
+- 若 SQL 表不存在、DB 尚未同步、或查無結果，回退讀取 `storage.scan_paths` 中對應 MD。
+
+典型查詢模式（使用端專案需替換為自己的 projection 表與欄位；框架 skill 不保存專案表名或專案資料）：
+
+```sql
+SELECT short_label, status, source_md, source_line
+FROM project_owned_projection
+WHERE status IN ('active', 'unknown')
+ORDER BY status, short_label;
+```
+
 ## Step 4: 确认上下文充足
 
 **检查清单**：

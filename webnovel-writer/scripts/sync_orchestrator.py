@@ -97,6 +97,8 @@ def cmd_status(project_root: Path, cfg: dict) -> int:
 def _sync_file(conn, parser: NovelParser, md: Path) -> tuple[int, int]:
     src = str(md)
     purge_source(conn, src)
+    if hasattr(parser, "purge_project_source"):
+        parser.purge_project_source(conn, src)
     ents = parser.parse_entities(md)
     chgs = parser.parse_changes(md)
     for e in ents:
@@ -105,6 +107,8 @@ def _sync_file(conn, parser: NovelParser, md: Path) -> tuple[int, int]:
     for c in chgs:
         c.source_md = src
         insert_change(conn, c)
+    if hasattr(parser, "sync_project_records"):
+        parser.sync_project_records(conn, md, ents, chgs)
     record_file_sync(conn, src, md.stat().st_mtime)
     return len(ents), len(chgs)
 
@@ -116,6 +120,8 @@ def cmd_sync(project_root: Path, cfg: dict, full: bool = False) -> int:
     files = collect_files(project_root, storage.get("scan_paths", []))
 
     conn = open_db(db_path)
+    if hasattr(parser, "ensure_project_schema"):
+        parser.ensure_project_schema(conn)
     known = {} if full else get_file_mtimes(conn)
     targets = [p for p in files if known.get(str(p), 0.0) < p.stat().st_mtime]
 
@@ -135,6 +141,8 @@ def cmd_sync(project_root: Path, cfg: dict, full: bool = False) -> int:
         current = {str(p) for p in files}
         for orphan in [p for p in get_file_mtimes(conn) if p not in current]:
             purge_source(conn, orphan)
+            if hasattr(parser, "purge_project_source"):
+                parser.purge_project_source(conn, orphan)
             conn.execute("DELETE FROM sync_files WHERE path=?", (orphan,))
         conn.commit()
 
